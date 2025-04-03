@@ -1,1 +1,881 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZIP to Project Tree Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .upload-area {
+            flex: 0 0 300px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px dashed #d1d8e0;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area.dragover {
+            border-color: #4dabf7;
+            background: #e7f5ff;
+        }
+
+        .upload-area input {
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        .upload-area p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .dark-mode .upload-area {
+            background: #2c2c2c;
+            border-color: #444;
+        }
+
+        .dark-mode .upload-area.dragover {
+            border-color: #4dabf7;
+            background: #3a3a3a;
+        }
+
+        .dark-mode .upload-area p {
+            color: #bbb;
+        }
+
+        .tree-output {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: background 0.3s;
+        }
+
+        .dark-mode .tree-output {
+            background: #2c2c2c;
+            box-shadow: 0 2px 4px rgba(255,255,255,0.05);
+        }
+
+        .text-tree {
+            white-space: pre;
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            overflow-x: auto;
+            user-select: all;
+            border: 1px solid #eee;
+            margin-top: 15px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .dark-mode .text-tree {
+            background: #3a3a3a;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+
+        .highlight {
+            background: #e7f5ff;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .dark-mode .highlight {
+            background: #4dabf7;
+            color: #fff;
+        }
+
+        .tree-header h2 {
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dark-mode .tree-header h2 {
+            color: #e0e0e0;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #d1d8e0;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .dark-mode .search-input {
+            background: #3a3a3a;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+
+        .search-btn {
+            padding: 8px 16px;
+            background: #4dabf7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s ease;
+        }
+
+        .search-btn:hover {
+            background: #339af0;
+        }
+
+        .dark-mode .search-btn {
+            background: #339af0;
+        }
+
+        .dark-mode .search-btn:hover {
+            background: #4dabf7;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .toggle-label {
+            font-size: 0.9em;
+        }
+
+        .dark-mode .toggle-label {
+            color: #bbb;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #ccc;
+            transition: 0.3s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background: #4dabf7;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .analytics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .dark-mode .stat-box {
+            background: #3a3a3a;
+        }
+
+        .stat-box strong {
+            color: #1864ab;
+        }
+
+        .dark-mode .stat-box strong {
+            color: #4dabf7;
+        }
+
+        .folder-details {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            border: 1px solid #eee;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .dark-mode .folder-details {
+            background: #3a3a3a;
+            border-color: #555;
+        }
+
+        .folder-details h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .dark-mode .folder-details h3 {
+            color: #e0e0e0;
+        }
+
+        .folder-details h3::before {
+            content: '▼';
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
+        }
+
+        .folder-details.collapsed h3::before {
+            transform: rotate(-90deg);
+        }
+
+        .breadcrumbs {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .dark-mode .breadcrumbs {
+            color: #bbb;
+        }
+
+        .breadcrumbs span {
+            cursor: pointer;
+            color: #1864ab;
+        }
+
+        .dark-mode .breadcrumbs span {
+            color: #4dabf7;
+        }
+
+        .breadcrumbs span:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumbs span:not(:last-child)::after {
+            content: ' / ';
+            color: #666;
+        }
+
+        .dark-mode .breadcrumbs span:not(:last-child)::after {
+            color: #bbb;
+        }
+
+        .sort-headers {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .dark-mode .sort-headers {
+            border-color: #555;
+        }
+
+        .sort-header {
+            flex: 1;
+            font-size: 0.85em;
+            color: #495057;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            user-select: none;
+        }
+
+        .dark-mode .sort-header {
+            color: #e0e0e0;
+        }
+
+        .sort-header:hover {
+            color: #1864ab;
+        }
+
+        .dark-mode .sort-header:hover {
+            color: #4dabf7;
+        }
+
+        .sort-header .arrow {
+            font-size: 0.7em;
+            opacity: 0.5;
+        }
+
+        .sort-header.active .arrow {
+            opacity: 1;
+        }
+
+        .folder-details ul {
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+        }
+
+        .folder-details.collapsed ul {
+            max-height: 0;
+            overflow: hidden;
+        }
+
+        .folder-details li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            transition: border-color 0.3s;
+        }
+
+        .dark-mode .folder-details li {
+            border-color: #555;
+        }
+
+        .folder-details li:last-child {
+            border-bottom: none;
+        }
+
+        .folder-name {
+            color: #495057;
+            font-weight: 500;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .dark-mode .folder-name {
+            color: #e0e0e0;
+        }
+
+        .folder-name:hover {
+            color: #1864ab;
+        }
+
+        .dark-mode .folder-name:hover {
+            color: #4dabf7;
+        }
+
+        .folder-stats {
+            display: flex;
+            gap: 15px;
+            color: #666;
+            font-size: 0.85em;
+            flex-shrink: 0;
+        }
+
+        .dark-mode .folder-stats {
+            color: #bbb;
+        }
+
+        .folder-stats span strong {
+            color: #1864ab;
+        }
+
+        .dark-mode .folder-stats span strong {
+            color: #4dabf7;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            background: #4dabf7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .copy-btn:hover {
+            background: #339af0;
+        }
+
+        .dark-mode .copy-btn {
+            background: #339af0;
+        }
+
+        .dark-mode .copy-btn:hover {
+            background: #4dabf7;
+        }
+
+        .copy-btn.hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                margin: 10px;
+            }
+
+            .upload-area, .tree-output {
+                width: 100%;
+            }
+
+            .copy-btn {
+                width: 100%;
+            }
+
+            .folder-details li {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .folder-stats {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .text-tree {
+                font-size: 0.8em;
+            }
+
+            .upload-area, .tree-output {
+                padding: 15px;
+            }
+
+            .stat-box {
+                flex: 1 0 100%;
+            }
+
+            .folder-name {
+                font-size: 0.9em;
+            }
+
+            .folder-stats {
+                font-size: 0.8em;
+            }
+        }
+
+        @media (max-width: 480px) and (-webkit-min-device-pixel-ratio: 2) {
+            .folder-details li {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 10px 0;
+            }
+
+            .folder-name {
+                width: 100%;
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .folder-stats {
+                width: 100%;
+                padding-left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="upload-area">
+            <input type="file" id="zipInput" accept=".zip">
+            <p>Drop or select a ZIP file to view project structure</p>
+        </div>
+        <div class="tree-output">
+            <div class="tree-header">
+                <h2>
+                    Project Structure
+                    <span class="toggle-container">
+                        <label class="toggle-label" for="darkModeToggle">Dark Mode</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </span>
+                </h2>
+                <div class="analytics" id="analytics"></div>
+                <div class="folder-details" id="folderDetails">
+                    <h3>Folder Details</h3>
+                    <div class="breadcrumbs" id="breadcrumbs"></div>
+                    <div class="sort-headers">
+                        <div class="sort-header" data-sort="name">Folder Name</div>
+                        <div class="sort-header" data-sort="folders">Folders <span class="arrow">▼</span></div>
+                        <div class="sort-header" data-sort="files">Files <span class="arrow">▼</span></div>
+                    </div>
+                    <ul></ul>
+                </div>
+                <div class="search-container">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search folders/files...">
+                    <button class="search-btn" id="searchBtn">Search</button>
+                </div>
+                <button class="copy-btn hidden" id="copyBtn">Copy Tree</button>
+            </div>
+            <div class="text-tree" id="textTree"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        const zipInput = document.getElementById('zipInput');
+        const textTree = document.getElementById('textTree');
+        const copyBtn = document.getElementById('copyBtn');
+        const analytics = document.getElementById('analytics');
+        const folderDetails = document.getElementById('folderDetails');
+        const breadcrumbs = document.getElementById('breadcrumbs');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const uploadArea = document.querySelector('.upload-area');
+
+        let fullTree = {};
+        let currentPath = '';
+        let sortState = { field: null, ascending: false };
+        let zipFileName = '';
+        let originalTreeText = '';
+
+        zipInput.addEventListener('change', handleFileSelect);
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) processZip(files[0]);
+        });
+
+        async function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) processZip(file);
+        }
+
+        async function processZip(file) {
+            try {
+                textTree.textContent = 'Loading...';
+                zipFileName = file.name.replace('.zip', '');
+                const zip = await JSZip.loadAsync(file);
+                fullTree = buildTreeStructure(zip.files);
+                currentPath = '';
+                originalTreeText = renderTree(fullTree, '');
+                textTree.textContent = originalTreeText;
+                displayAnalytics(fullTree, '');
+                copyBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error processing ZIP:', error);
+                textTree.textContent = 'Error loading ZIP file';
+                analytics.innerHTML = '';
+                folderDetails.innerHTML = '<h3>Folder Details</h3><div class="breadcrumbs"></div><div class="sort-headers"><div class="sort-header" data-sort="name">Folder Name</div><div class="sort-header" data-sort="folders">Folders <span class="arrow">▼</span></div><div class="sort-header" data-sort="files">Files <span class="arrow">▼</span></div></div><ul></ul>';
+                copyBtn.classList.add('hidden');
+            }
+        }
+
+        function buildTreeStructure(files) {
+            const tree = {};
+            Object.keys(files).forEach(filePath => {
+                const parts = filePath.split('/').filter(p => p);
+                let current = tree;
+                parts.forEach((part, index) => {
+                    if (!current[part]) {
+                        const isFile = index === parts.length - 1 && !files[filePath].dir;
+                        current[part] = isFile ? null : {};
+                    }
+                    if (current[part] !== null) {
+                        current = current[part];
+                    }
+                });
+            });
+            return tree;
+        }
+
+        function renderTree(tree, path, prefix = '', searchTerm = '') {
+            let result = '';
+            const subTree = getSubTree(tree, path);
+            const entries = Object.keys(subTree).sort();
+
+            if (!path) {
+                result += `${zipFileName}\n`;
+            } else {
+                const parts = path.split('/').filter(p => p);
+                const currentFolderName = parts[parts.length - 1];
+                result += `${currentFolderName}\n`;
+            }
+
+            entries.forEach((name, index) => {
+                const isLast = index === entries.length - 1;
+                const newPrefix = prefix + (isLast ? '└── ' : '├── ');
+                const entryText = `${newPrefix}${name}`;
+                const matchesSearch = !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
+
+                if (matchesSearch) {
+                    result += searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase()) 
+                        ? `${newPrefix}<span class="highlight">${name}</span>\n` 
+                        : `${entryText}\n`;
+                }
+
+                if (subTree[name] !== null) {
+                    const childPrefix = prefix + (isLast ? '    ' : '│   ');
+                    const subResult = renderSubTree(subTree[name], childPrefix, searchTerm);
+                    if (subResult || matchesSearch) {
+                        result += subResult;
+                    }
+                }
+            });
+
+            return result;
+        }
+
+        function renderSubTree(subTree, prefix, searchTerm = '') {
+            let result = '';
+            const entries = Object.keys(subTree).sort();
+
+            entries.forEach((name, index) => {
+                const isLast = index === entries.length - 1;
+                const newPrefix = prefix + (isLast ? '└── ' : '├── ');
+                const entryText = `${newPrefix}${name}`;
+                const matchesSearch = !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
+
+                if (matchesSearch) {
+                    result += searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase()) 
+                        ? `${newPrefix}<span class="highlight">${name}</span>\n` 
+                        : `${entryText}\n`;
+                }
+
+                if (subTree[name] !== null) {
+                    const childPrefix = prefix + (isLast ? '    ' : '│   ');
+                    const subResult = renderSubTree(subTree[name], childPrefix, searchTerm);
+                    if (subResult || matchesSearch) {
+                        result += subResult;
+                    }
+                }
+            });
+
+            return result;
+        }
+
+        function getSubTree(tree, path) {
+            if (!path) return tree;
+            const parts = path.split('/').filter(p => p);
+            let current = tree;
+            for (const part of parts) {
+                if (current[part] && current[part] !== null) {
+                    current = current[part];
+                } else {
+                    return {};
+                }
+            }
+            return current;
+        }
+
+        function analyzeTree(tree) {
+            let totalFolders = 0;
+            let totalFiles = 0;
+            const folderStats = {};
+
+            function traverse(node, basePath = '') {
+                Object.keys(node).forEach(name => {
+                    const fullPath = basePath ? `${basePath}/${name}` : name;
+                    if (node[name] === null) {
+                        totalFiles++;
+                    } else {
+                        totalFolders++;
+                        const stats = { files: 0, folders: 0 };
+                        Object.keys(node[name]).forEach(child => {
+                            if (node[name][child] === null) {
+                                stats.files++;
+                            } else {
+                                stats.folders++;
+                            }
+                        });
+                        folderStats[fullPath] = stats;
+                        traverse(node[name], fullPath);
+                    }
+                });
+            }
+
+            traverse(tree);
+            return { totalFolders, totalFiles, folderStats };
+        }
+
+        function displayAnalytics(tree, path) {
+            const subTree = getSubTree(tree, path);
+            const { totalFolders, totalFiles, folderStats } = analyzeTree(subTree);
+            
+            analytics.innerHTML = `
+                <div class="stat-box">Total Folders: <strong>${totalFolders}</strong></div>
+                <div class="stat-box">Total Files: <strong>${totalFiles}</strong></div>
+            `;
+
+            const parts = path ? path.split('/').filter(p => p) : [];
+            breadcrumbs.innerHTML = `<span data-path="">Root</span>` + 
+                (path ? parts.map((part, i) => {
+                    const crumbPath = parts.slice(0, i + 1).join('/');
+                    return `<span data-path="${crumbPath}">${part}</span>`;
+                }).join('') : '');
+            
+            breadcrumbs.querySelectorAll('span').forEach(span => {
+                span.onclick = () => {
+                    currentPath = span.dataset.path;
+                    const searchTerm = searchInput.value.trim();
+                    originalTreeText = renderTree(fullTree, currentPath);
+                    textTree.textContent = searchTerm ? renderTree(fullTree, currentPath, '', searchTerm) : originalTreeText;
+                    displayAnalytics(fullTree, currentPath);
+                };
+            });
+
+            const ul = folderDetails.querySelector('ul');
+            const sortHeaders = folderDetails.querySelectorAll('.sort-header');
+
+            function renderFolderList(stats) {
+                ul.innerHTML = Object.entries(stats).map(([folder, stats]) => `
+                    <li>
+                        <span class="folder-name" data-path="${folder}">${folder.split('/').pop()}</span>
+                        <span class="folder-stats">
+                            <span><strong>${stats.folders}</strong> folder${stats.folders !== 1 ? 's' : ''}</span>
+                            <span><strong>${stats.files}</strong> file${stats.files !== 1 ? 's' : ''}</span>
+                        </span>
+                    </li>
+                `).join('') || '<li>No folders found</li>';
+
+                ul.querySelectorAll('.folder-name').forEach(name => {
+                    name.onclick = () => {
+                        const newPath = name.dataset.path;
+                        currentPath = newPath;
+                        const searchTerm = searchInput.value.trim();
+                        originalTreeText = renderTree(fullTree, newPath);
+                        textTree.textContent = searchTerm ? renderTree(fullTree, newPath, '', searchTerm) : originalTreeText;
+                        displayAnalytics(fullTree, newPath);
+                    };
+                });
+            }
+
+            renderFolderList(folderStats);
+
+            sortHeaders.forEach(header => {
+                header.onclick = () => {
+                    const field = header.dataset.sort;
+                    const isAscending = sortState.field === field ? !sortState.ascending : true;
+                    sortState = { field, ascending: isAscending };
+
+                    sortHeaders.forEach(h => {
+                        h.classList.remove('active');
+                        const arrow = h.querySelector('.arrow');
+                        if (arrow) arrow.textContent = '▼';
+                    });
+                    header.classList.add('active');
+                    const arrow = header.querySelector('.arrow');
+                    if (arrow) arrow.textContent = isAscending ? '▲' : '▼';
+
+                    const sortedStats = Object.entries(folderStats).sort((a, b) => {
+                        if (field === 'name') return isAscending ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0]);
+                        if (field === 'folders') return isAscending ? a[1].folders - b[1].folders : b[1].folders - a[1].folders;
+                        if (field === 'files') return isAscending ? a[1].files - b[1].files : b[1].files - a[1].files;
+                    }).reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+                    renderFolderList(sortedStats);
+                };
+            });
+
+            folderDetails.querySelector('h3').onclick = () => folderDetails.classList.toggle('collapsed');
+        }
+
+        // Search Functionality
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.trim();
+            textTree.textContent = searchTerm ? renderTree(fullTree, currentPath, '', searchTerm) : originalTreeText;
+        });
+
+        searchBtn.addEventListener('click', () => {
+            const searchTerm = searchInput.value.trim();
+            textTree.textContent = searchTerm ? renderTree(fullTree, currentPath, '', searchTerm) : originalTreeText;
+        });
+
+        // Dark Mode Toggle
+        darkModeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', darkModeToggle.checked);
+        });
+
+        // Load dark mode preference
+        if (localStorage.getItem('darkMode') === 'true') {
+            darkModeToggle.checked = true;
+            document.body.classList.add('dark-mode');
+        }
+
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(textTree.textContent)
+                .then(() => alert('Tree copied to clipboard!'))
+                .catch(err => alert('Failed to copy: ' + err));
+        });
+    </script>
+</body>
+</html>
