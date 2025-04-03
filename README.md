@@ -1,6 +1,6 @@
 # ZIP to Project Tree Converter
 
-![Project Tree Visualization](https://via.placeholder.com/800x500.png?text=ZIP+to+Tree+Converter+Demo)
+![Project Tree Visualization](https://raw.githubusercontent.com/Ogxcoders/Project-Tree-Generator-/refs/heads/main/IMG_20250403_180356.jpg)
 
 A powerful browser-based tool that visualizes ZIP file structures as interactive project trees with analytics and search capabilities.
 
